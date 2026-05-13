@@ -1,13 +1,20 @@
-# Sinh viên thực hiện: Nguyễn Trường Lân
-# Mã sinh viên: B24DCCE163
-# Lớp: D24CQCE02-B
-# Bài Tập Lập Trình Python - Câu 1
-
 import pandas as pd
 from DrissionPage import ChromiumPage
 import os
 import time
 from io import StringIO
+
+def _flatten_columns(df):
+    if isinstance(df.columns, pd.MultiIndex):
+        df.columns = [
+            str(col[1]).strip() if 'Unnamed' in str(col[0])
+            else f"{col[0]}_{col[1]}".strip()
+            for col in df.columns.values
+        ]
+    else:
+        df.columns = [str(col).strip() for col in df.columns]
+    return df
+
 
 def crawl_epl_direct():
     if not os.path.exists('data'):
@@ -21,11 +28,19 @@ def crawl_epl_direct():
         print(f"Dang truy cap: {url}")
         page.get(url)
         
-        if page.ele('tag:table', timeout=60):
-            print("Da thay bang du lieu tren web.")
+        for attempt in range(1, 4):
+            print(f"Tim kiem bang du lieu (lan {attempt}/3)...")
+            if page.ele('tag:table', timeout=60):
+                print("Da thay bang du lieu tren web.")
+                break
+            if attempt < 3:
+                print(f"Khong tim thay bang, thu lai sau 5 giay...")
+                time.sleep(5)
         else:
-            print("Loi: Qua thoi gian cho, khong tim thay bang.")
-            return
+            raise RuntimeError(
+                "Khong tim thay bang du lieu tren trang sau 3 lan thu. "
+                "Kiem tra ket noi mang hoac URL co the da thay doi."
+            )
 
         time.sleep(3) 
         html_source = page.html
@@ -47,16 +62,7 @@ def crawl_epl_direct():
             return
 
         print("Dang lam sach du lieu...")
-        if isinstance(df.columns, pd.MultiIndex):
-            new_cols = []
-            for col in df.columns.values:
-                if 'Unnamed' in str(col[0]):
-                    new_cols.append(str(col[1]).strip())
-                else:
-                    new_cols.append(f"{col[0]}_{col[1]}".strip())
-            df.columns = new_cols
-        else:
-            df.columns = [str(col).strip() for col in df.columns]
+        df = _flatten_columns(df)
 
         min_col = None
         for col in df.columns:
@@ -79,7 +85,7 @@ def crawl_epl_direct():
         df_filtered.index += 1
         df_filtered.index.name = 'STT'
         
-        save_path = os.path.join(os.getcwd(), 'D:/PTIT/Kì 2 năm 2/Python/btl-python/SOURCE CODE/data', 'epl_players_25_26.csv')
+        save_path = os.path.join(os.getcwd(), 'data', 'epl_players_25_26.csv')
         df_filtered.to_csv(save_path, index=True, encoding='utf-8')
         print(f"Thanh cong! Da luu file CSV tai duong dan:\n{save_path}")
         
